@@ -1,142 +1,114 @@
-# Running with Docker
-The agent should always be run in a container in order to prevent harmful commands being run on the user's PC.  
+# ITBench SRE Agent
 
-1. Clone the repo.
-```bash
-git clone git@github.com:IBM/itbench-sre-agent.git
-cd itbench-sre-agent
+**AI-Powered Site Reliability Engineering Agent**
+
+**[ITBench Main Repository](https://github.com/IBM/ITBench) | [Paper](https://github.com/IBM/ITBench/blob/main/it_bench_arxiv.pdf) | [Incident Scenarios](https://github.com/IBM/ITBench/blob/main/docs/incident_scenarios.md)**
+
+## Overview
+
+The ITBench SRE Agent is an open-source AI-powered Site Reliability Engineering agent that automates incident response in Kubernetes and OpenShift environments. Leveraging large language models and built on the CrewAI framework, this intelligent agent diagnoses complex system failures, traces root causes, and implements remediation strategies within real-world inspired incident scenarios on the ITBench platform.
+
+### Key Features
+
+- **Automated Incident Response**: Diagnose and resolve incidents in Kubernetes environments
+- **Real-world Scenarios**: Works with ITBench's collection of realistic SRE incident scenarios
+- **Observability Integration**: Integrates with Prometheus, Jaeger, and, Clickhouse
+- **Containerized Execution**: Runs safely in containers to prevent harmful commands on host systems
+
+## Quick Start
+
+### Prerequisites
+- [Docker](https://docs.docker.com/get-started/get-docker/)
+
+### Running with Docker
+The agent should always be run in a container in order to prevent harmful commands being run on the user's PC.
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/IBM/ITBench-SRE-Agent
+   cd ITBench-SRE-Agent
+   ```
+
+2. **Prepare your kubeconfig**
+   
+   Move the provided kubeconfig file [here]() into the root directory of this repo and rename it to `config`:
+   ```bash
+   mv /path/to/your/kubeconfig ./config
+   ```
+
+3. **Configure environment**
+   
+   Move the provided `.env` file [here]() to the root directory of this repo.
+
+4. **Build the container image**
+   ```bash
+   docker build -t itbench-sre-agent --no-cache .
+   ```
+
+5. **Run the agent**
+   ```bash
+   # macOS
+   docker run --mount type=bind,src="$(pwd)",target=/app/lumyn -e KUBECONFIG=/app/lumyn/config -it itbench-sre-agent /bin/bash
+   
+   # Linux
+   docker run --network=host --mount type=bind,src="$(pwd)",target=/app/lumyn -e KUBECONFIG=/app/lumyn/config -it itbench-sre-agent /bin/bash
+   ```
+
+6. **Get the observability URL**
+   
+   Inside the docker container, run:
+   ```bash
+   kubectl get ingress -n prometheus
+   ```
+   
+   You should see output like:
+   ```
+   NAME         CLASS   HOSTS   ADDRESS                                                                   PORTS   AGE
+   prometheus   nginx   *       ad54bc930b7ec40c38f06be1a1ed0758-1859094179.us-west-2.elb.amazonaws.com   80      10h
+   ```
+   
+   Copy the content under the `ADDRESS` section. This is your `<observability-url>`.
+
+7. **Update environment variables**
+   
+   Open the `.env` file in a text editor and update the following values:
+   - `API_KEY_AGENTS`: Your provided API key
+   - `API_KEY_TOOLS`: Your provided API key  
+   - `OBSERVABILITY_STACK_URL`: `http://<observability-url>`
+   - `TOPOLOGY_URL`: `http://<observability-url>/topology`
+
+8. **Start the agent**
+   ```bash
+   crewai run
+   ```
+
+## Developer Guide
+
+Please see our [Developer Guide](DEVELOPER.md) for detailed information on:
+- Local development setup
+- Configuration options
+- Customization and extension
+
+## ITBench Ecosystem and Related Repositories
+
+- [ITBench](https://github.com/IBM/ITBench): Central repository providing an overview of the ITBench ecosystem, related announcements, and publications.
+- [CISO-CAA Agent](https://github.com/IBM/ITBench-CISO-CAA-Agent): CISO (Chief Information Security Officer) agents that automate compliance assessments by generating policies from natural language, collecting evidence, integrating with GitOps workflows, and deploying policies for assessment.
+- [SRE Agent](https://github.com/IBM/ITBench-SRE-Agent): SRE (Site Reliability Engineering) agents designed to diagnose and remediate problems in Kubernetes-based environments. Leverage logs, metrics, traces, and Kubernetes states/events from the IT enviroment.
+- [ITBench Leaderboard](https://github.com/IBM/ITBench-Leaderboard): Service that handles scenario deployment, agent evaluation, and maintains a public leaderboard for comparing agent performance on ITOps use cases.
+- [ITBench Utilities](https://github.com/IBM/ITBench-Utilities): Collection of supporting tools and utilities for participants in the ITBench ecosystem and leaderboard challenges.
+- [ITBench Tutorials](https://github.com/IBM/ITBench-Tutorials): Repository containing the latest tutorials, workshops, and educational content for getting started with ITBench.
+
+## Maintainers
+
+- Noah Zheutlin - [@noahzibm](https://github.com/noahzibm)
+
+### How to Cite
+
+```bibtex
+@misc{jha2025itbench,
+      title={ITBench: Evaluating AI Agents across Diverse Real-World IT Automation Tasks},
+      author={Jha, Saurabh and Arora, Rohan and Watanabe, Yuji and others},
+      year={2025},
+      url={https://github.com/IBM/itbench-sample-scenarios/blob/main/it_bench_arxiv.pdf}
+}
 ```
-
-2. Move the kubeconfig of the cluster on which ITBench is running into the root directory of this repo.
-
-3. Create a `.env` based on `.env.tmpl` by running:
-```bash
-cp .env.tmpl .env
-```
-.env guide:
-```python
-### Embedding (used to enable CrewAI memory feature - Optional) ### 
-MODEL_EMBEDDING="" # embedding model name, e.g. text-embedding-3-large
-URL_EMBEDDING="" # embedding model url, e.g. https://xxxxx.azure-api.net/openai/deployments/text-embedding-3-large-1/embeddings?api-version=2023-05-15
-API_VERSION_EMBEDDING="" # embedding model api version, e.g. 2023-05-15 (same as the end of the url)
-
-### Agent - configures that backend used by the agent ### 
-PROVIDER_AGENTS="" # agent model provider, e.g. watsonx, azure, anthropic, openai
-MODEL_AGENTS="" # agent model or checkpoint name, e.g. ibm/granite-3-2-8b-instruct, gpt-4o, gpt-4o-2024-11-20
-URL_AGENTS="" # agent model url, e.g. https://us-south.ml.cloud.ibm.com (no url required for openai)
-API_VERSION_AGENTS="" # only required for azure, e.g. 2024-12-01-preview
-API_KEY_AGENTS="" # agent api key
-REASONING_EFFORT_AGENTS="" # for o1, o1-mini, and o3-mini only, e.g. low, medium, high
-SEED_AGENTS=10 # sets the seed for the agent model
-TOP_P_AGENTS=0.95 # sets the top p for the agent model
-TEMPERATURE_AGENTS=0.0 # sets the temperature for the agent model
-THINKING_AGENTS="" # for Claude Sonnet 3.7 and Granite 3.2 only. use anthropic for CS3.7 and wx for G3.2. leave empty to use these models without thinking
-THINKING_BUDGET_AGENTS=6000 # for Claude Sonnet 3.7 only. determines the number of thinking token allowed
-MAX_TOKENS_AGENTS=16000 # max new tokens the agent model can output per call
-
-### Tools - configures that backend used by the tools ###
-PROVIDER_TOOLS="" # see above
-MODEL_TOOLS="" # see above
-URL_TOOLS="" # see above
-API_VERSION_TOOLS="" # see above
-API_KEY_TOOLS="" # see above
-REASONING_EFFORT_TOOLS="" # see above
-SEED_TOOLS=10 # see above
-TOP_P_TOOLS=0.95 # see above
-TEMPERATURE_TOOLS=0.0 # see above
-THINKING_TOOLS="" # see above
-THINKING_BUDGET_TOOLS=6000 # see above
-MAX_TOKENS_TOOLS=16000 # see above
-
-WX_PROJECT_ID="" # required only when using a watsonx model
-
-# Linux
-OBSERVABILITY_STACK_URL="http://localhost:8080"
-TOPOLOGY_URL="http://localhost:8080/topology"
-
-# Mac
-OBSERVABILITY_STACK_URL="http://localhost:8080"
-TOPOLOGY_URL="http://localhost:8080/topology"
-
-# DO NOT ALTER THESE VALUES
-AGENT_TASK_DIRECTORY="config"
-SRE_AGENT_EVALUATION_DIRECTORY="/app/lumyn/outputs"
-STRUCTURED_UNSTRUCTURED_OUTPUT_DIRECTORY_PATH="/app/lumyn/outputs"
-SRE_AGENT_NAME_VERSION_NUMBER="Test"
-EXP_NAME="Test"
-GOD_MODE="True"
-OBSERVABILITY_STACK_SERVICE_ACCOUNT_TOKEN="not_required"
-KUBECONFIG="/app/lumyn/config"
-```
-
-Update the values here to switch LLM backends. Supports all providers and models that are available through [LiteLLM](https://docs.litellm.ai/docs/providers). Also update the values at the bottom so the agent can interact with your cluster.
-
-4. Build the image.
-```bash
-docker build -t itbench-sre-agent .
-```
-
-5. Run the image in interactive mode:
-```bash
-# Linux
-docker run --network=host -it itbench-sre-agent /bin/bash
-
-# Mac
-docker run -it itbench-sre-agent /bin/bash
-```
-6. Start the agent:
-```bash
-crewai run
-```
-
-Pre-built images coming soon.
-
-# Development Setup Instructions
-1. Clone the repo
-```bash
-git clone git@github.com:IBM/itbench-sre-agent.git
-cd itbench-sre-agent
-```
-
-2. This project uses Python 3.12. Install uv for dependecy management and install crewai.  
-
-Mac/Linux
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uv tool install crewai
-```
-  
-Windows  
-```bash
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-uv tool install crewai
-```
-3. Navigate to the root project directory and install the dependencies using the CLI command:
-```bash
-crewai install
-```
-  
-4. Create a `.env` based on `.env.tmpl` by running:
-```bash
-cp .env.tmpl .env
-```
-Update the values here to switch LLM backends.
-  
-5. Customize:  
-- Modify `src/lumyn/config/agents.yaml` to define your agents
-- Modify `src/lumyn/config/tasks.yaml` to define your tasks
-- Modify `src/lumyn/crew.py` to add your own logic, tools and specific args
-- Modify `src/lumyn/main.py` to add custom inputs for your agents and tasks
-
-# User Interface
-To leverage Panel as a UI, head over to the ui directory (via cd ui) and run:
-
-`panel serve panel_main.py --show`
-
-and then head over to http://localhost:5006/panel_main in your browser. Tested in Firefox and Chrome.
-
-To leverage Streamlit as a UI, head over to the ui directory (via cd ui) and run:
-
-`streamlit run streamlit_main.py`
-
-and then head over to http://localhost:5006/panel_main in your browser. Tested in Firefox and Chrome.
