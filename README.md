@@ -2,8 +2,6 @@
 
 **AI-Powered Site Reliability Engineering Agent**
 
-**[ITBench Main Repository](https://github.com/IBM/ITBench) | [Paper](https://github.com/IBM/ITBench/blob/main/it_bench_arxiv.pdf) | [Incident Scenarios](https://github.com/IBM/ITBench/blob/main/docs/incident_scenarios.md)**
-
 ## Overview
 
 The ITBench SRE Agent is an open-source AI-powered Site Reliability Engineering agent that automates incident response in Kubernetes and OpenShift environments. Leveraging large language models and built on the CrewAI framework, this intelligent agent diagnoses complex system failures, traces root causes, and implements remediation strategies within real-world inspired incident scenarios on the ITBench platform.
