@@ -29,7 +29,7 @@ The agent should always be run in a container in order to prevent harmful comman
 
 2. **Prepare your kubeconfig**
    
-   Move the provided kubeconfig file [here]() into the root directory of this repo and rename it to `config`:
+   Move the kubeconfig file from the cluster on which the ITBench is running into the root directory of this repo and rename it to `config`:
    ```bash
    mv /path/to/your/kubeconfig ./config
    ```
