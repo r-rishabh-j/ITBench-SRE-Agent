@@ -36,7 +36,7 @@ The agent should always be run in a container in order to prevent harmful comman
 
 3. **Configure environment**
    
-   Move the provided `.env` file [here]() to the root directory of this repo.
+   Modify the provided `.env.tmpl` as needed and move it to the root directory of this repo and rename it `.env`.
 
 4. **Build the container image**
    ```bash
