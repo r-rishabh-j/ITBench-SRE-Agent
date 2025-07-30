@@ -64,10 +64,10 @@ export OBSERVABILITY_STACK_URL=${base_url}
 export TOPOLOGY_URL=${base_url}/topology
 ```
 The agent can then use these the following end-points to interact with the observability environment. So for say:
-a. Alerts: `${OBSERVABILITY_STACK_URL}/prometheus/api/v1/alerts` [Reference tool](https://github.com/itbench-hub/ITBench-SRE-Agent/blob/main/src/lumyn/tools/observability_stack/get_alerts.py)
-b. Metrics in Prometheus: `${OBSERVABILITY_STACK_URL}/prometheus/api/v1/query` [Reference tool](https://github.com/itbench-hub/ITBench-SRE-Agent/blob/main/src/lumyn/tools/observability_stack/nl2metrics.py)
-c. Traces in Jaeger: `${OBSERVABILITY_STACK_URL}/jaeger/api/traces` [Reference tool](https://github.com/itbench-hub/ITBench-SRE-Agent/blob/main/src/lumyn/tools/observability_stack/nl2traces.py)
-d. Topology: `${OBSERVABILITY_URL}/topology` [Reference tool](https://github.com/itbench-hub/ITBench-SRE-Agent/blob/main/src/lumyn/tools/observability_stack/get_topology_nodes.py)
+a. Alerts: `${OBSERVABILITY_STACK_URL}/prometheus/api/v1/alerts` [Reference tool](https://github.com/itbench-hub/ITBench-SRE-Agent/blob/main/src/lumyn/tools/observability_stack/get_alerts.py)  
+b. Metrics in Prometheus: `${OBSERVABILITY_STACK_URL}/prometheus/api/v1/query` [Reference tool](https://github.com/itbench-hub/ITBench-SRE-Agent/blob/main/src/lumyn/tools/observability_stack/nl2metrics.py)  
+c. Traces in Jaeger: `${OBSERVABILITY_STACK_URL}/jaeger/api/traces` [Reference tool](https://github.com/itbench-hub/ITBench-SRE-Agent/blob/main/src/lumyn/tools/observability_stack/nl2traces.py)  
+d. Topology: `${OBSERVABILITY_URL}/topology` [Reference tool](https://github.com/itbench-hub/ITBench-SRE-Agent/blob/main/src/lumyn/tools/observability_stack/get_topology_nodes.py)  
 
 7. Build sre-agent-harness image by running
 ```bash
