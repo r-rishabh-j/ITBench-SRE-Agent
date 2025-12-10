@@ -27,6 +27,13 @@ from lumyn.tools.kubectl.nl2kubectl import NL2KubectlCustomTool
 from lumyn.tools.observability_stack.get_topology_nodes import GetTopologyNodes
 from lumyn.llm_backends.init_backend import (get_llm_backend_for_tools)
 
+from langfuse import get_client
+from dotenv import load_dotenv
+
+load_dotenv()
+
+langfuse = get_client()
+
 # This main file is intended to be a way for your to run your
 # crew locally, so refrain from adding necessary logic into this file.
 # Replace with inputs you want to test with, it will automatically
@@ -104,9 +111,9 @@ def run():
     except:
         print("no memories to clear")
 
-    kubectl_otel_astronomy_shop = NL2KubectlCustomTool(llm_backend=get_llm_backend_for_tools())._execute_kubectl_command("kubectl get pods -n otel-demo")
-    kubectl_dsb_hotel_researvation = NL2KubectlCustomTool(llm_backend=get_llm_backend_for_tools())._execute_kubectl_command("kubectl get pods -n hotel-reservation")
-    if kubectl_otel_astronomy_shop[1] != 0 and kubectl_dsb_hotel_researvation[1] !=0:
+    kubectl_otel_astronomy_shop = NL2KubectlCustomTool(llm_backend=get_llm_backend_for_tools())._execute_kubectl_command("sudo kubectl --kubeconfig /app/lumyn/config get pods -n otel-demo")
+    # kubectl_dsb_hotel_researvation = NL2KubectlCustomTool(llm_backend=get_llm_backend_for_tools())._execute_kubectl_command("sudo kubectl --kubeconfig /app/lumyn/config get pods -n hotel-reservation")
+    if kubectl_otel_astronomy_shop[1] != 0:
         raise Exception("KUBECONFIG is not configured correctly.")
 
     while True:
@@ -147,8 +154,9 @@ def run():
             os.environ.get('INCIDENT_NUMBER'), os.environ.get('EXP_NAME'))
     with open(os.path.join(eval_dir, 'alert_start_time.txt'), 'w') as f:
         f.write(datetime.datetime.now().isoformat())
-
-    LumynCrew().crew().kickoff(inputs=inputs)
+    
+    with langfuse.start_as_current_observation(as_type="span", name="crewai-index-trace"):
+        LumynCrew().crew().kickoff(inputs=inputs)
     format_final_op()
 
 
