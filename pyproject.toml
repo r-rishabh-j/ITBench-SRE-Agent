@@ -17,11 +17,15 @@ dependencies = [
     "antlr4-python3-runtime==4.10",
     "numpy==1.26.4",
     "ibm-watsonx-ai>=1.1.26",
-    "crewai-tools==0.37.0",
-    "crewai==0.105.0",
-    "litellm==1.60.2",
+    "crewai-tools>=0.37.0",
+    "crewai>=0.105.0",
+    "litellm==1.80.0",
     "pyyaml>=6.0.2",
     "langfuse>=3.0.0",
+    "crewai[google-genai]",
+    "openinference-instrumentation-crewai",
+    "openinference-instrumentation-litellm",
+    "openinference-instrumentation-langchain",
 ]
 
 [project.scripts]
