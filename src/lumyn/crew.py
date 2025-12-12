@@ -189,4 +189,7 @@ class LumynCrew():
                     process=Process.sequential,
                     memory=memory,
                     embedder=embedder,
-                    verbose=True)
+                    verbose=True,
+                    planning=True, # AGI!
+                    planning_llm=get_llm_backend_for_agents()
+                    )

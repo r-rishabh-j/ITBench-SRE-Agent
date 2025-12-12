@@ -1,3 +1,5 @@
+src/lumyn/tools/report_generation/data/topology_nodes.json
+
 *.key
 api.key
 instana_api.key

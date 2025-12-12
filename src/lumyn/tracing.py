@@ -1,0 +1,138 @@
+from collections import defaultdict
+from langfuse.api.resources.observations.types.observations_views import ObservationsViews
+
+def _extract_metrics_from_trace(observations: ObservationsViews):
+    """Extract metrics from Langfuse trace data"""
+    print("\n" + "=" * 80)
+    print("TRACE OBSERVATIONS")
+    print("=" * 80)
+
+    tool_call_latencies = []
+    reasoning_token_usages = []
+    tasks_token_usages = defaultdict(list)
+    tasks = []
+
+    llm_call_count = 0
+    for idx, obs in enumerate(observations.data, 1):
+        print(f"\n📊 Observation #{idx}")
+        print(f"{'─'*80}")
+
+        # Get all attributes (excluding private/magic methods)
+        all_attrs = [attr for attr in dir(obs) if not attr.startswith("_")]
+
+        for attr in sorted(all_attrs):
+            try:
+                value = getattr(obs, attr)
+                # Skip methods/callables
+                if not callable(value):
+                    # Format attribute name with proper spacing
+                    attr_display = attr.replace("_", " ").title()
+                    if(attr_display == "Usage Details" and isinstance(value, dict)):
+                        for k, v in value.items():
+                            if("reasoning" in k.lower()):
+                                reasoning_token_usages.append((obs.name, k, v))
+                    if(attr_display == "Metadata"):
+                        if("attributes" in value and isinstance(value["attributes"], dict)):
+                            for k, v in value["attributes"].items():
+                                if("task_id" in k.lower()):
+                                    task_id = v
+                                    obs_id = obs.id
+                                    tasks.append((task_id, obs_id))
+                    # Truncate long values
+                    value_str = str(value)
+                    if(attr_display == "Type" and value_str == "TOOL"):
+                        tool_call_latencies.append((obs.name, obs.latency))
+                    if len(value_str) > 100:
+                        value_str = value_str[:97] + "..."
+                    value_str = value_str.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+                    print(f"  {attr_display:<25} {value_str}")
+            except Exception as e:
+                print(f"  {attr:<25} <Error: {str(e)[:50]}>")
+        
+        if obs.completion_start_time and obs.start_time:
+            ttft = (obs.completion_start_time - obs.start_time).total_seconds()
+            print(f"  {'Time To First Token':<25} {ttft:.4f} seconds")
+
+        if getattr(obs, 'model', None) is not None:
+            llm_call_count += 1
+
+        
+    for task_id, obs_id in tasks:
+        for obs in observations.data:
+            if obs.parent_observation_id == obs_id:
+                if(obs.usage_details):
+                    tasks_token_usages[task_id].append(obs.usage_details)
+        
+    print("\n" + "=" * 80)
+    print("PERFORMANCE REPORT & NFRs")
+    print("=" * 80)
+
+    # 1. Global Latency
+    # Try to find the root span (usually the one with no parent or named 'crewai-index-trace')
+    root_span = next((o for o in observations.data if not o.parent_observation_id), None)
+    if not root_span:
+            # Fallback: check for specific name
+            root_span = next((o for o in observations.data if o.name == 'crewai-index-trace'), None)
+    
+    if root_span:
+        latency_sec = 0.0
+        if getattr(root_span, 'latency', None):
+                latency_sec = root_span.latency 
+        elif root_span.end_time and root_span.start_time:
+                latency_sec = (root_span.end_time - root_span.start_time).total_seconds()
+        print(f"{'End to End Latency':<25} {latency_sec:.2f} seconds")
+
+    # 2. Total Cost
+    total_cost = sum(getattr(o, 'calculated_total_cost', 0.0) or 0.0 for o in observations.data)
+    if total_cost > 0:
+        print(f"{'Total Cost':<25} ${total_cost:.4f}")
+    
+    print(f"{'Total LLM Calls':<25} {llm_call_count}")
+
+    # 3. Planning Overhead (Reasoning Ratio)
+    total_reasoning_tokens = 0
+    total_output_tokens = 0
+    
+    for obs in observations.data:
+        usage = getattr(obs, 'usage_details', {}) or {}
+        # Check for reasoning tokens in various common keys
+        r_tokens = usage.get('reasoning', 0)
+        # Also check nested structure if valid
+        if not r_tokens:
+                for k, v in usage.items():
+                    if "reasoning" in k.lower() and isinstance(v, (int, float)):
+                        r_tokens += v
+        
+        total_reasoning_tokens += r_tokens
+        
+        # Output tokens usually under 'output' or 'completion'
+        out_tokens = usage.get('output', 0) or usage.get('completion', 0)
+        total_output_tokens += out_tokens
+
+    if total_output_tokens > 0:
+        overhead_pct = (total_reasoning_tokens / total_output_tokens) * 100
+        print(f"{'Planning Overhead':<25} {overhead_pct:.1f}% ({total_reasoning_tokens}/{total_output_tokens} tokens)")
+    
+    print("\nTokens Breakdown:")
+    for task_id, usages in tasks_token_usages.items():
+        average_usage = 0
+        count = 0
+        for usage in usages:
+            if "total" in usage:
+                average_usage += usage["total"]
+                count += 1
+        if count > 0:
+            average_usage /= count
+            print(f"\nAverage token usage for Task ID {task_id}: {average_usage} tokens")
+
+    print(f"\n{'='*80}")
+    print(f"Total Observations: {len(observations.data)}")
+    print(f"{'='*80}\n")
+
+    print("Tool Call Latencies:")
+    for tool_name, latency in tool_call_latencies:
+        print(f"  {tool_name}: {latency} ms")
+    
+    print("\nReasoning Token Usages:")
+    for obs_name, usage_type, token_count in reasoning_token_usages:
+        print(f"  {obs_name} - {usage_type}: {token_count} tokens")
