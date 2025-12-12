@@ -1,8 +1,11 @@
 from collections import defaultdict
 from langfuse.api.resources.observations.types.observations_views import ObservationsViews
+import json
+import datetime
 
 def _extract_metrics_from_trace(observations: ObservationsViews):
     """Extract metrics from Langfuse trace data"""
+
     print("\n" + "=" * 80)
     print("TRACE OBSERVATIONS")
     print("=" * 80)
@@ -11,11 +14,21 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
     reasoning_token_usages = []
     tasks_token_usages = defaultdict(list)
     tasks = []
+    
+    # List to store all observations for JSON dump
+    all_observations_data = []
 
     llm_call_count = 0
     for idx, obs in enumerate(observations.data, 1):
         print(f"\n📊 Observation #{idx}")
         print(f"{'─'*80}")
+        
+        # Dict to store processed observation data
+        obs_dict = obs.dict()
+        
+        # Ensure we have at least usage_details initialized
+        if "usage_details" not in obs_dict:
+             obs_dict["usage_details"] = getattr(obs, "usage_details", {})
 
         # Get all attributes (excluding private/magic methods)
         all_attrs = [attr for attr in dir(obs) if not attr.startswith("_")]
@@ -23,6 +36,11 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
         for attr in sorted(all_attrs):
             try:
                 value = getattr(obs, attr)
+                # Store in dict if not already present (and if serializable)
+                # We'll handle serialization cleanup at the end
+                if attr not in obs_dict and not callable(value):
+                     obs_dict[attr] = value
+
                 # Skip methods/callables
                 if not callable(value):
                     # Format attribute name with proper spacing
@@ -38,6 +56,9 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
                                     task_id = v
                                     obs_id = obs.id
                                     tasks.append((task_id, obs_id))
+                                    # Add task_id to obs_dict
+                                    obs_dict["task_id"] = task_id
+                                    
                     # Truncate long values
                     value_str = str(value)
                     if(attr_display == "Type" and value_str == "TOOL"):
@@ -52,9 +73,12 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
         if obs.completion_start_time and obs.start_time:
             ttft = (obs.completion_start_time - obs.start_time).total_seconds()
             print(f"  {'Time To First Token':<25} {ttft:.4f} seconds")
+            obs_dict["time_to_first_token"] = ttft
 
         if getattr(obs, 'model', None) is not None:
             llm_call_count += 1
+        
+        all_observations_data.append(obs_dict)
 
         
     for task_id, obs_id in tasks:
@@ -124,6 +148,12 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
         if count > 0:
             average_usage /= count
             print(f"\nAverage token usage for Task ID {task_id}: {average_usage} tokens")
+            
+            # Inject average usage into relevant observations ?? 
+            # Or just add a separate report entry in the json? 
+            # For now, let's keep it simple and just dump the observations.
+            # We could add a 'metrics_summary' to the end of the list or wrap it.
+            # But the user said "dump all observations to one json file", implying a list of observations.
 
     print(f"\n{'='*80}")
     print(f"Total Observations: {len(observations.data)}")
@@ -136,3 +166,17 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
     print("\nReasoning Token Usages:")
     for obs_name, usage_type, token_count in reasoning_token_usages:
         print(f"  {obs_name} - {usage_type}: {token_count} tokens")
+
+    # Serialize and Save to JSON
+    def json_serial(obj):
+        """JSON serializer for objects not serializable by default json code"""
+        if isinstance(obj, (datetime.datetime, datetime.date)):
+            return obj.isoformat()
+        return str(obj)
+
+    try:
+        with open("observations_dump.json", "w") as f:
+            json.dump(all_observations_data, f, default=json_serial, indent=2)
+        print(f"\n[INFO] Observations dumped to 'observations_dump.json'")
+    except Exception as e:
+        print(f"\n[ERROR] Failed to dump observations to JSON: {e}")

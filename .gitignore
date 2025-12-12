@@ -1,4 +1,5 @@
 src/lumyn/tools/report_generation/data/topology_nodes.json
+observations_dump.json
 
 *.key
 api.key
