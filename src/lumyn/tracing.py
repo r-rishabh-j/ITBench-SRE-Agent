@@ -1,9 +1,10 @@
 from collections import defaultdict
-from langfuse.api.resources.observations.types.observations_views import ObservationsViews
+from langfuse.api.resources.commons.types.observations_view import ObservationsView
 import json
 import datetime
+from typing import List
 
-def _extract_metrics_from_trace(observations: ObservationsViews):
+def _extract_metrics_from_trace(observations_data: List[ObservationsView]):
     """Extract metrics from Langfuse trace data"""
 
     print("\n" + "=" * 80)
@@ -19,16 +20,23 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
     all_observations_data = []
 
     llm_call_count = 0
-    for idx, obs in enumerate(observations.data, 1):
+    for idx, obs in enumerate(observations_data):
         print(f"\n📊 Observation #{idx}")
         print(f"{'─'*80}")
         
         # Dict to store processed observation data
-        obs_dict = obs.dict()
-        
+        # Use by_alias=False to avoid mixed casing (camelCase aliases vs snake_case attributes)
+        try:
+            obs_dict = obs.dict(by_alias=False, exclude_unset=False, exclude_none=False)
+        except TypeError:
+            # Fallback if by_alias is not supported
+            obs_dict = obs.dict()
+
+        all_observations_data.append(obs_dict)
+
         # Ensure we have at least usage_details initialized
-        if "usage_details" not in obs_dict:
-             obs_dict["usage_details"] = getattr(obs, "usage_details", {})
+        # if "usage_details" not in obs_dict:
+        #      obs_dict["usage_details"] = getattr(obs, "usage_details", {})
 
         # Get all attributes (excluding private/magic methods)
         all_attrs = [attr for attr in dir(obs) if not attr.startswith("_")]
@@ -38,8 +46,8 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
                 value = getattr(obs, attr)
                 # Store in dict if not already present (and if serializable)
                 # We'll handle serialization cleanup at the end
-                if attr not in obs_dict and not callable(value):
-                     obs_dict[attr] = value
+                # if attr not in obs_dict and not callable(value):
+                #      obs_dict[attr] = value
 
                 # Skip methods/callables
                 if not callable(value):
@@ -57,7 +65,7 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
                                     obs_id = obs.id
                                     tasks.append((task_id, obs_id))
                                     # Add task_id to obs_dict
-                                    obs_dict["task_id"] = task_id
+                                    # obs_dict["task_id"] = task_id
                                     
                     # Truncate long values
                     value_str = str(value)
@@ -73,16 +81,16 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
         if obs.completion_start_time and obs.start_time:
             ttft = (obs.completion_start_time - obs.start_time).total_seconds()
             print(f"  {'Time To First Token':<25} {ttft:.4f} seconds")
-            obs_dict["time_to_first_token"] = ttft
+            # obs_dict["time_to_first_token"] = ttft
 
         if getattr(obs, 'model', None) is not None:
             llm_call_count += 1
         
-        all_observations_data.append(obs_dict)
+        
 
         
     for task_id, obs_id in tasks:
-        for obs in observations.data:
+        for obs in observations_data:
             if obs.parent_observation_id == obs_id:
                 if(obs.usage_details):
                     tasks_token_usages[task_id].append(obs.usage_details)
@@ -93,10 +101,10 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
 
     # 1. Global Latency
     # Try to find the root span (usually the one with no parent or named 'crewai-index-trace')
-    root_span = next((o for o in observations.data if not o.parent_observation_id), None)
+    root_span = next((o for o in observations_data if not o.parent_observation_id), None)
     if not root_span:
             # Fallback: check for specific name
-            root_span = next((o for o in observations.data if o.name == 'crewai-index-trace'), None)
+            root_span = next((o for o in observations_data if o.name == 'crewai-index-trace'), None)
     
     if root_span:
         latency_sec = 0.0
@@ -107,7 +115,7 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
         print(f"{'End to End Latency':<25} {latency_sec:.2f} seconds")
 
     # 2. Total Cost
-    total_cost = sum(getattr(o, 'calculated_total_cost', 0.0) or 0.0 for o in observations.data)
+    total_cost = sum(getattr(o, 'calculated_total_cost', 0.0) or 0.0 for o in observations_data)
     if total_cost > 0:
         print(f"{'Total Cost':<25} ${total_cost:.4f}")
     
@@ -117,7 +125,7 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
     total_reasoning_tokens = 0
     total_output_tokens = 0
     
-    for obs in observations.data:
+    for obs in observations_data:
         usage = getattr(obs, 'usage_details', {}) or {}
         # Check for reasoning tokens in various common keys
         r_tokens = usage.get('reasoning', 0)
@@ -156,7 +164,7 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
             # But the user said "dump all observations to one json file", implying a list of observations.
 
     print(f"\n{'='*80}")
-    print(f"Total Observations: {len(observations.data)}")
+    print(f"Total Observations: {len(observations_data)}")
     print(f"{'='*80}\n")
 
     print("Tool Call Latencies:")

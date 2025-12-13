@@ -180,10 +180,19 @@ def run():
         # trace_detail = langfuse.api.trace.get(trace_id)
 
         # Extract metrics
-        observations = langfuse.api.observations.get_many(trace_id=trace_detail.id)
-        print("Observations page data:")
-        print(observations.meta)
-        _extract_metrics_from_trace(observations)
+        all_observations = []
+        page = 1
+        while True:
+            observations = langfuse.api.observations.get_many(trace_id=trace_detail.id, page=page, limit=50)
+            if not observations.data:
+                break
+            all_observations.extend(observations.data)
+            if page >= observations.meta.total_pages:
+                break
+            page += 1
+            
+        print(f"Total observations fetched: {len(all_observations)}")
+        _extract_metrics_from_trace(all_observations)
     format_final_op()
 
 def train():
