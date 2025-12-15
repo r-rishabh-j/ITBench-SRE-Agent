@@ -37,6 +37,7 @@ from langfuse import get_client
 from dotenv import load_dotenv
 
 from lumyn.tracing import _extract_metrics_from_trace
+from lumyn.loop_detection import LoopDetector
 
 load_dotenv()
 
@@ -162,14 +163,16 @@ def run():
             os.environ.get('INCIDENT_NUMBER'), os.environ.get('EXP_NAME'))
     with open(os.path.join(eval_dir, 'alert_start_time.txt'), 'w') as f:
         f.write(datetime.datetime.now().isoformat())
-    
-
 
     CrewAIInstrumentor().instrument(skip_dep_check=True)
     LangChainInstrumentor().instrument(skip_dep_check=True)
     LiteLLMInstrumentor().instrument(skip_dep_check=True)
+
+    # loop_detector = LoopDetector()
+
     with langfuse.start_as_current_observation(as_type="span", name="crewai-index-trace"):
         LumynCrew().crew().kickoff(inputs=inputs)
+        # LumynCrew(callback_agent=loop_detector.callback).crew().kickoff(inputs=inputs)
     langfuse.flush()
     traces = langfuse.api.trace.list()
     if traces.data and len(traces.data) > 0:

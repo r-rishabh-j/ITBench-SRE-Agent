@@ -14,7 +14,7 @@ def _extract_metrics_from_trace(observations: ObservationsViews):
     reasoning_token_usages = []
     tasks_token_usages = defaultdict(list)
     tasks = []
-    
+
     # List to store all observations for JSON dump
     all_observations_data = []
 
