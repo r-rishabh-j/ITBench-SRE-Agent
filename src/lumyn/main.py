@@ -174,6 +174,7 @@ def run():
         LumynCrew().crew().kickoff(inputs=inputs)
         # LumynCrew(callback_agent=loop_detector.callback).crew().kickoff(inputs=inputs)
     langfuse.flush()
+    time.sleep(15)   
     traces = langfuse.api.trace.list()
     if traces.data and len(traces.data) > 0:
         trace_detail = traces.data[0]  # Most recent trace
@@ -183,17 +184,30 @@ def run():
         # trace_detail = langfuse.api.trace.get(trace_id)
 
         # Extract metrics
-        all_observations = []
-        page = 1
-        while True:
-            observations = langfuse.api.observations.get_many(trace_id=trace_detail.id, page=page, limit=50)
-            if not observations.data:
-                break
-            all_observations.extend(observations.data)
-            if page >= observations.meta.total_pages:
-                break
-            page += 1
+        # Retry loop to ensure root span is captured (eventual consistency)
+        max_retries = 5
+        for attempt in range(max_retries):
+            print(f"Fetching observations (Attempt {attempt + 1}/{max_retries})...")
+            all_observations = []
+            page = 1
+            while True:
+                observations = langfuse.api.observations.get_many(trace_id=trace_detail.id, page=page, limit=50)
+                if not observations.data:
+                    break
+                all_observations.extend(observations.data)
+                if page >= observations.meta.total_pages:
+                    break
+                page += 1
             
+            # Check for root span
+            root_span_found = any(o.parent_observation_id is None for o in all_observations)
+            if root_span_found:
+                break
+            
+            if attempt < max_retries - 1:
+                print("Root span not found, waiting for ingestion...")
+                time.sleep(2)
+        
         print(f"Total observations fetched: {len(all_observations)}")
         _extract_metrics_from_trace(all_observations)
     format_final_op()

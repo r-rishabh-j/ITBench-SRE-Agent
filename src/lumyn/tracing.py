@@ -1,5 +1,6 @@
 from collections import defaultdict
 from langfuse.api.resources.commons.types.observations_view import ObservationsView
+import langfuse
 import json
 import datetime
 from typing import List
@@ -29,6 +30,7 @@ def _extract_metrics_from_trace(observations_data: List[ObservationsView]):
         try:
             obs_dict = obs.dict(by_alias=False, exclude_unset=False, exclude_none=False)
         except TypeError:
+            print("CHECK!!")
             # Fallback if by_alias is not supported
             obs_dict = obs.dict()
 
@@ -188,3 +190,46 @@ def _extract_metrics_from_trace(observations_data: List[ObservationsView]):
         print(f"\n[INFO] Observations dumped to 'observations_dump.json'")
     except Exception as e:
         print(f"\n[ERROR] Failed to dump observations to JSON: {e}")
+
+if __name__ == "__main__":
+    from langfuse import get_client
+    from dotenv import load_dotenv
+    
+    # Load environment variables from .env file
+    load_dotenv()
+    
+    # Initialize the client (assumes env vars are set)
+    langfuse_client = get_client()
+    
+    # List traces to get the most recent one
+    # Note: Use the client instance 'langfuse_client', not the module 'langfuse'
+    traces = langfuse_client.api.trace.list(page=1, limit=1)
+    
+    if traces.data:
+        trace_detail = traces.data[0]
+        print(f"Fetching observations for trace ID: {trace_detail.id}")
+        
+        all_observations = []
+        page = 1
+        while True:
+            # Use the client instance to access the API
+            observations = langfuse_client.api.observations.get_many(trace_id=trace_detail.id, page=page, limit=50)
+            if not observations.data:
+                break
+            all_observations.extend(observations.data)
+            if page >= observations.meta.total_pages:
+                break
+            page += 1
+            
+        print(f"Total observations fetched: {len(all_observations)}")
+        
+        # Verify root span presence
+        root_spans = [o for o in all_observations if not o.parent_observation_id]
+        if root_spans:
+            print(f"[INFO] Found {len(root_spans)} root span(s): {[o.name for o in root_spans]}")
+        else:
+            print("[WARN] No root span (parent_observation_id=None) found in this trace!")
+            
+        _extract_metrics_from_trace(all_observations)
+    else:
+        print("No traces found.")
